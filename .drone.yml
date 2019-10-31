@@ -1,0 +1,31 @@
+kind: pipeline
+name: default
+
+steps:
+ - name: test
+   image: rust:1.38.0
+   commands:
+    - cargo test
+ - name: build_relase
+   image: rust:1.38.0
+   commands:
+    - cargo install --path . --root . -f
+    - tar cvzf ttt.tar.gz bin src Cargo.*
+   when:
+    event:    
+    - tag
+ - name: gitea_release
+   image: plugins/gitea-release
+   settings:
+     api_key:
+      from_secret: gitea_tkn
+     base_url:
+      from_secret: gitea_url
+     files:
+       - ttt.tar.gz
+     checksum:
+       - md5
+       - sha512
+   when:
+    event: 
+    - tag

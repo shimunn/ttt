@@ -2,6 +2,7 @@ use std::fmt;
 use std::io;
 use std::io::Write;
 use std::ops::{Index, IndexMut};
+use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum State {
@@ -24,6 +25,7 @@ impl fmt::Display for State {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 struct Board(Vec<State>);
 
 impl fmt::Display for Board {
@@ -61,6 +63,26 @@ impl IndexMut<(usize, usize)> for Board {
     }
 }
 
+impl FromStr for Board {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut board = Self::new(0);
+        for c in s.chars() {
+            match c {
+                'X' | 'x' => board.0.push(State::X),
+                'O' | 'o' => board.0.push(State::O),
+                'N' | 'n' => board.0.push(State::N),
+                _ => (),
+            }
+        }
+        if board.dimension() * board.dimension() != board.0.len() {
+            return Err(());
+        }
+        Ok(board)
+    }
+}
+
 impl Board {
     fn new(size: usize) -> Board {
         let mut b = Vec::with_capacity(size * size);
@@ -75,50 +97,68 @@ impl Board {
     }
 
     fn winner(&self) -> Option<State> {
-        let mut winners = [State::N; 4]; //winner row, col, diag right, diag left
+        let mut winners = [State::N; 4];
         let dim = self.dimension();
-        for a in 0..dim {
-            for b in 0..dim {
-                //winner row
-                winners[0] = if b == 0 || (winners[0] != State::N && winners[0] == self[(a, b)]) {
-                    self[(a, b)]
-                } else {
-                    State::N
-                };
-                //winner col
-                winners[1] = if b == 0 || (winners[1] != State::N && winners[1] == self[(b, a)]) {
-                    self[(b, a)]
-                } else {
-                    State::N
-                };
-                //winner diag
-                if a == b {
-                    winners[2] = if a == 0 || winners[2] != State::N && winners[2] == self[(a, a)] {
-                        self[(a, a)]
+        fn winner(winners: &[State]) -> Option<State> {
+            winners
+                .into_iter()
+                .find(|w| *w != &State::N)
+                .map(|w| w.clone())
+        }
+        for x in 0..dim {
+            for y in 0..dim {
+                let row = (y, x);
+                let col = (x, y);
+
+                {
+                    let r = self[row];
+                    let c = self[col];
+                    winners[0] = if y == 0 || winners[0] == r {
+                        r
                     } else {
                         State::N
                     };
 
-                    winners[3] = if a == 0
-                        || winners[3] != State::N && winners[3] == self[(dim - a - 1, dim - a - 1)]
-                    {
-                        self[(dim - a - 1, dim - a - 1)]
+                    winners[1] = if y == 0 || winners[1] == c {
+                        c
                     } else {
                         State::N
                     };
                 }
             }
+            {
+                //diagonal
+                let diag_left = (x, x);
+                let diag_right = (dim - x - 1, x);
+
+                let l = self[diag_left];
+                let r = self[diag_right];
+                winners[2] = if x == 0 || winners[2] == l {
+                    l
+                } else {
+                    State::N
+                };
+
+                winners[3] = if x == 0 || winners[3] == r {
+                    r
+                } else {
+                    State::N
+                };
+            }
+            //Row and Col winners can be determined after one Y pass
+            if let Some(winner) = winner(&winners[0..2]) {
+                return Some(winner);
+            }
         }
-        winners
-            .into_iter()
-            .find(|w| *w != &State::N)
-            .map(|w| w.clone())
+        //Diagonal winners require a full X pass
+        winner(&winners[2..4])
     }
 }
 
 fn main() {
     let mut board = Board::default();
-    let mut stdin = std::io::stdin();
+    let stdin = std::io::stdin();
+    println!("{}", &board);
     let winner = loop {
         if let Some(winner) = board.winner() {
             break winner;
@@ -128,9 +168,9 @@ fn main() {
             loop {
                 let (x, y) = loop {
                     print!("{}, your move: (x  y)  ", s);
-                    io::stdout().flush();
+                    io::stdout().flush().unwrap();
                     input.clear();
-                    stdin.read_line(&mut input);
+                    stdin.read_line(&mut input).unwrap();
                     let parts = input.trim().split(" ").collect::<Vec<_>>();
                     if parts.len() != 2 {
                         eprintln!("Invalid input");
@@ -158,11 +198,40 @@ fn main() {
                     _ => eprintln!("({}, {}) is already occupied! Try again", x, y),
                 }
             }
-            if let Some(winner) = board.winner() {
+            if let Some(_) = board.winner() {
                 break;
             }
             println!("{}", &board);
         }
     };
     println!("The winner is {}", winner);
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn winner() {
+        assert_eq!(Board::from_str("NNN,NNN,NNN").unwrap(), Board::default());
+        assert_eq!(
+            Board::from_str("XXX,NNN,NNN").unwrap().winner(),
+            Some(State::X)
+        );
+        assert_eq!(
+            Board::from_str("XNX,NNN,NNN").unwrap().winner(),
+            None
+        );
+        assert_eq!(
+            Board::from_str("NNN,XXX,NNN").unwrap().winner(),
+            Some(State::X)
+        );
+        assert_eq!(
+            Board::from_str("XON,OXN,ONX").unwrap().winner(),
+            Some(State::X)
+        );
+        assert_eq!(
+            Board::from_str("OXN,OON,XNO").unwrap().winner(),
+            Some(State::O)
+        );
+    }
 }

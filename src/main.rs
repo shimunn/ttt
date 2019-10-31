@@ -1,3 +1,4 @@
+use std::env::args;
 use std::fmt;
 use std::io;
 use std::io::Write;
@@ -72,7 +73,7 @@ impl FromStr for Board {
             match c {
                 'X' | 'x' => board.0.push(State::X),
                 'O' | 'o' => board.0.push(State::O),
-                'N' | 'n' => board.0.push(State::N),
+                'N' | 'n' | '_' => board.0.push(State::N),
                 _ => (),
             }
         }
@@ -94,6 +95,16 @@ impl Board {
 
     fn dimension(&self) -> usize {
         (self.0.len() as f64).sqrt() as usize
+    }
+
+    fn to_string_short(&self) -> String {
+        let mut s = String::with_capacity(self.0.len() + self.dimension());
+        for y in 0..self.dimension() {
+            for x in 0..self.dimension() {
+                s.push_str(&self[(x, y)].to_string())
+            }
+        }
+        s
     }
 
     fn winner(&self) -> Option<State> {
@@ -156,7 +167,19 @@ impl Board {
 }
 
 fn main() {
-    let mut board = Board::default();
+    let mut board = {
+        if let Some(arg) = args().skip(1).next() {
+            if let Ok(size) = arg.parse::<usize>() {
+                Board::new(size)
+            } else if let Ok(board) = Board::from_str(&arg) {
+                board
+            } else {
+                Board::default()
+            }
+        } else {
+            Board::default()
+        }
+    };
     let stdin = std::io::stdin();
     println!("{}", &board);
     let winner = loop {
@@ -204,7 +227,7 @@ fn main() {
             println!("{}", &board);
         }
     };
-    println!("The winner is {}", winner);
+    println!("{}\nThe winner is {}", board.to_string_short(), winner);
 }
 
 #[cfg(test)]
@@ -217,10 +240,7 @@ mod test {
             Board::from_str("XXX,NNN,NNN").unwrap().winner(),
             Some(State::X)
         );
-        assert_eq!(
-            Board::from_str("XNX,NNN,NNN").unwrap().winner(),
-            None
-        );
+        assert_eq!(Board::from_str("XNX,NNN,NNN").unwrap().winner(), None);
         assert_eq!(
             Board::from_str("NNN,XXX,NNN").unwrap().winner(),
             Some(State::X)
@@ -232,6 +252,14 @@ mod test {
         assert_eq!(
             Board::from_str("OXN,OON,XNO").unwrap().winner(),
             Some(State::O)
+        );
+    }
+
+    #[test]
+    fn to_string() {
+        assert_eq!(
+            &Board::from_str("XXX,NNN,NNN").unwrap().to_string_short()[..],
+            "XXX______"
         );
     }
 }

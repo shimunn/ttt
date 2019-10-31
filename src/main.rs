@@ -132,6 +132,10 @@ fn main() {
                     input.clear();
                     stdin.read_line(&mut input);
                     let parts = input.trim().split(" ").collect::<Vec<_>>();
+                    if parts.len() != 2 {
+                        eprintln!("Invalid input");
+                        continue;
+                    }
                     match (parts[0].parse::<usize>(), parts[1].parse::<usize>()) {
                         (Err(_), _) => eprintln!("X is not an valid int"),
                         (_, Err(_)) => eprintln!("Y is not an valid int"),

@@ -127,11 +127,11 @@ fn main() {
         for s in &[State::X, State::O] {
             loop {
                 let (x, y) = loop {
-                    print!("{}, your move: (x, y)  ", s);
+                    print!("{}, your move: (x  y)  ", s);
                     io::stdout().flush();
                     input.clear();
                     stdin.read_line(&mut input);
-                    let parts = input.trim().split(",").collect::<Vec<_>>();
+                    let parts = input.trim().split(" ").collect::<Vec<_>>();
                     match (parts[0].parse::<usize>(), parts[1].parse::<usize>()) {
                         (Err(_), _) => eprintln!("X is not an valid int"),
                         (_, Err(_)) => eprintln!("Y is not an valid int"),
@@ -153,6 +153,9 @@ fn main() {
                     }
                     _ => eprintln!("({}, {}) is already occupied! Try again", x, y),
                 }
+            }
+            if let Some(winner) = board.winner() {
+                break;
             }
             println!("{}", &board);
         }

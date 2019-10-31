@@ -10,6 +10,7 @@ steps:
    image: rust:1.38.0
    commands:
     - cargo install --path . --root . -f
+    - strip bin/tictactoe
     - tar cvzf ttt.tar.gz bin src Cargo.*
    when:
     event:    

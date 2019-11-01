@@ -163,6 +163,7 @@ impl Board {
         }
         //Diagonal winners require a full X pass
         winner(&winners[2..4])
+            .or(Some(State::N).filter(|_| self.0.iter().filter(|s| *s == &State::N).count() == 0))
     }
 }
 
@@ -252,6 +253,11 @@ mod test {
         assert_eq!(
             Board::from_str("OXN,OON,XNO").unwrap().winner(),
             Some(State::O)
+        );
+        println!("{}", Board::from_str("XOX,OOX,OXO").unwrap());
+        assert_eq!(
+            Board::from_str("XOX,OOX,OXO").unwrap().winner(),
+            Some(State::N)
         );
     }
 

@@ -12,6 +12,12 @@ enum State {
     N,
 }
 
+impl State {
+    fn players() -> &'static [State] {
+        &[State::O, State::X]
+    }
+}
+
 impl fmt::Display for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -107,69 +113,52 @@ impl Board {
         s
     }
 
-    fn winner(&self) -> Option<State> {
-        let mut winners = [State::N; 4];
-        let dim = self.dimension();
-        fn winner(winners: &[State]) -> Option<State> {
-            winners
-                .into_iter()
-                .find(|w| *w != &State::N)
-                .map(|w| w.clone())
-        }
-        for x in 0..dim {
-            for y in 0..dim {
-                let row = (y, x);
-                let col = (x, y);
-
-                {
-                    let r = self[row];
-                    let c = self[col];
-                    winners[0] = if y == 0 || winners[0] == r {
-                        r
-                    } else {
-                        State::N
-                    };
-
-                    winners[1] = if y == 0 || winners[1] == c {
-                        c
-                    } else {
-                        State::N
-                    };
+    fn winner_with_criteria(&self, criteria: usize) -> Option<State> {
+        for s in State::players() {
+            let update = |coords: (usize, usize), counter: &mut usize| {
+                if self[coords] == *s {
+                    *counter += 1;
+                } else {
+                    *counter = 0;
+                }
+            };
+            let winner = |candidates: &[usize]| -> bool {
+                candidates.iter().find(|c| *c >= &criteria).is_some()
+            };
+            let (mut diar, mut dial) = (0usize, 0usize);
+            for i in 0..self.dimension() {
+                let (mut row, mut col) = (0usize, 0usize);
+                for j in 0..self.dimension() {
+                    update((i, j), &mut row);
+                    update((j, i), &mut col);
+                    if winner(&[row, col]) {
+                        return Some(*s);
+                    }
+                }
+                update((i, i), &mut dial);
+                update((self.dimension() - i - 1, i), &mut diar);
+                if winner(&[diar, dial]) {
+                    return Some(*s);
                 }
             }
-            {
-                //diagonal
-                let diag_left = (x, x);
-                let diag_right = (dim - x - 1, x);
-
-                let l = self[diag_left];
-                let r = self[diag_right];
-                winners[2] = if x == 0 || winners[2] == l {
-                    l
-                } else {
-                    State::N
-                };
-
-                winners[3] = if x == 0 || winners[3] == r {
-                    r
-                } else {
-                    State::N
-                };
-            }
-            //Row and Col winners can be determined after one Y pass
-            if let Some(winner) = winner(&winners[0..2]) {
-                return Some(winner);
-            }
         }
-        //Diagonal winners require a full X pass
-        winner(&winners[2..4])
-            .or(Some(State::N).filter(|_| self.0.iter().filter(|s| *s == &State::N).count() == 0))
+        None.or(Some(State::N).filter(|_| self.0.iter().filter(|s| *s == &State::N).count() == 0))
+    }
+
+    #[allow(unused)]
+    fn winner(&self) -> Option<State> {
+        self.winner_with_criteria(self.dimension())
     }
 }
 
 fn main() {
-    let mut board = {
-        if let Some(arg) = args().skip(1).next() {
+    let (mut board, criteria) = {
+        let mut args = args().skip(1);
+        let (size, criteria) = (
+            args.next(),
+            args.next().and_then(|c| c.parse::<usize>().ok()),
+        );
+        let board = if let Some(arg) = size {
             if let Ok(size) = arg.parse::<usize>() {
                 Board::new(size)
             } else if let Ok(board) = Board::from_str(&arg) {
@@ -179,16 +168,18 @@ fn main() {
             }
         } else {
             Board::default()
-        }
+        };
+        let dim = board.dimension();
+        (board, criteria.unwrap_or(dim))
     };
     let stdin = std::io::stdin();
     println!("{}", &board);
     let winner = loop {
-        if let Some(winner) = board.winner() {
+        if let Some(winner) = board.winner_with_criteria(criteria) {
             break winner;
         }
         let mut input = String::new();
-        for s in &[State::X, State::O] {
+        for s in State::players() {
             loop {
                 let (x, y) = loop {
                     print!("{}, your move: (x  y)  ", s);
@@ -222,7 +213,7 @@ fn main() {
                     _ => eprintln!("({}, {}) is already occupied! Try again", x, y),
                 }
             }
-            if let Some(_) = board.winner() {
+            if let Some(_) = board.winner_with_criteria(criteria) {
                 break;
             }
             println!("{}", &board);
@@ -258,6 +249,19 @@ mod test {
         assert_eq!(
             Board::from_str("XOX,OOX,OXO").unwrap().winner(),
             Some(State::N)
+        );
+        assert_eq!(
+            Board::from_str("XOX,OOX,OXO")
+                .unwrap()
+                .winner_with_criteria(1),
+            Some(State::O)
+        );
+
+        assert_eq!(
+            Board::from_str("XOX,OOX,OXO")
+                .unwrap()
+                .winner_with_criteria(2),
+            Some(State::O)
         );
     }
 

@@ -2,6 +2,7 @@ use std::env::args;
 use std::fmt;
 use std::io;
 use std::io::Write;
+use std::iter;
 use std::ops::{Index, IndexMut};
 use std::str::FromStr;
 
@@ -92,11 +93,7 @@ impl FromStr for Board {
 
 impl Board {
     fn new(size: usize) -> Board {
-        let mut b = Vec::with_capacity(size * size);
-        for _ in 0..b.capacity() {
-            b.push(State::N);
-        }
-        Board(b)
+        Board(iter::repeat(State::N).take(size * size).collect())
     }
 
     fn dimension(&self) -> usize {

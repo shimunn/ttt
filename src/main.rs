@@ -5,6 +5,7 @@ use std::io::Write;
 use std::iter;
 use std::ops::{Index, IndexMut};
 use std::str::FromStr;
+use std::time::SystemTime;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum State {
@@ -169,6 +170,17 @@ fn main() {
         let dim = board.dimension();
         (board, criteria.unwrap_or(dim))
     };
+    let players_rev = State::players().iter().rev().cloned().collect::<Vec<_>>();
+
+    let players: &[State] = if SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_millis() % 2 == 0)
+        .unwrap_or(false)
+    {
+        State::players()
+    } else {
+        &players_rev[..]
+    };
     let stdin = std::io::stdin();
     println!("{}", &board);
     let winner = loop {
@@ -176,7 +188,7 @@ fn main() {
             break winner;
         }
         let mut input = String::new();
-        for s in State::players() {
+        for s in players {
             loop {
                 let (x, y) = loop {
                     print!("{}, your move: (x  y)  ", s);
